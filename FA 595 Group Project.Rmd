@@ -1,0 +1,104 @@
+---
+title: "FA 595 Group Project"
+author: "Beatrice Spinola"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(quantmod)
+library(ggplot2)
+library(magrittr)
+library(lubridate)
+library(dplyr)
+library(broom)
+library(tidyquant)
+library(PerformanceAnalytics)
+library(psych)
+library(MASS)
+library(tidyr)
+library(class)
+library(reshape2)
+library(vioplot)
+library(sfsmisc)
+library(corrplot)
+library(aod)
+library(Matrix)
+```
+
+```{r}
+# Using getSymbols to get crypto data (sing past 1 year)
+start = as.Date("2022-01-01") 
+end = as.Date("2022-12-31")
+
+getSymbols(c("BTC-USD", "LTC-USD", "GRC-USD", "DOGE-USD", "PPC-USD"), src = "yahoo", from = start, to = end)
+
+coindata <- as.xts(data.frame(A = `BTC-USD`[, "BTC-USD.Adjusted"],
+                           B = `LTC-USD`[, "LTC-USD.Adjusted"],
+                           E = `GRC-USD`[, "GRC-USD.Adjusted"],
+                           C = `DOGE-USD`[,"DOGE-USD.Adjusted"],
+                           D = `PPC-USD`[, "PPC-USD.Adjusted"]))
+
+names(coindata) = c("Bitcoin", "Litecoin","Gridcoin", "Dogecoin", "Peercoin")
+index(coindata) = as.Date(index(coindata))
+head(coindata)
+
+# Visually inspect your data and make sure that there is no missing data during the sample period
+head(coindata, n=10)
+tail(coindata, n=10)
+summary(coindata)
+
+# Plots
+coindata_series = tidy(coindata) %>% 
+  ggplot(aes(x=index,y=value, color=series)) + labs(title = "Cryptocurrencies Daily Adj. Prices 01/2022-12/2022", subtitle = "End of Day Adjusted Prices", caption = " Source: Yahoo Finance") + xlab("Date") + ylab("Price") + scale_color_manual(values = c("Red", "Black", "DarkBlue","Orange", "Green")) + facet_wrap(~ series, ncol = 2, scales="free", drop=TRUE) + geom_line()
+coindata_series
+
+coindata_series = tidy(coindata[,4:5]) %>% 
+  ggplot(aes(x=index,y=value, color=series)) + labs(title = "Cryptocurrencies Daily Adj. Prices 01/2022-12/2022", subtitle = "End of Day Adjusted Prices", caption = " Source: Yahoo Finance") + xlab("Date") + ylab("Price") + scale_color_manual(values = c("Black", "Green")) + geom_line()
+coindata_series
+```
+
+```{r}
+# Calculate daily returns
+Returns <- Return.calculate(coindata)[-1]
+names(Returns) <- c("BTC-USD Rtn", "LTC-USD Rtn","GRC-USD Rtn", "D-USD Rtn", "PPC-USD Rtn")
+index(Returns) = as.Date(index(Returns))
+head(Returns, n=10)
+tail(Returns, n=10)
+```
+
+```{r}
+# Plot Daily Returns
+Returns_series = tidy(Returns) %>%
+ggplot(aes(x=index,y=value, color=series)) + 
+  scale_color_manual(values = c("Red", "Black", "DarkBlue","Orange", "Green")) +geom_line()
+Returns_series
+
+Returns_series1 = tidy(Returns) %>%
+ggplot(aes(x=index,y=value, color=series)) + 
+  scale_color_manual(values = c("Red", "Black", "DarkBlue","Orange", "Green")) + facet_wrap(~ series, ncol = 2, scales="free_y", drop=TRUE) + geom_line()
+Returns_series1
+```
+
+```{r}
+# Calculating standard deviation with describe()
+describe(Returns)
+vol <- sapply(Returns, sd)
+annualized_vol <- (sapply(Returns, sd))*sqrt(252)
+vol
+annualized_vol
+rank(vol)
+rank(annualized_vol)
+```
+
+```{r}
+# Correlation Matrix
+names(Returns) <- c("BTC-USD", "LTC-USD", "GRC-USD", "DOGE-USD", "PPC-USD")
+cor_Returns <- cor(Returns)
+cor_Returns
+
+# Correlation Chart
+par(mfrow = c(1, 2))
+corrplot.mixed(cor(Returns), upper = 'color', is.corr = FALSE, lower.col = COL1('Blues'), upper.col = COL1('Blues'), col.lim = c(0.11,1), number.cex = 0.6, tl.cex = 0.6)
+```
